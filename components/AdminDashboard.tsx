@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, Users } from 'lucide-react';
 import { PresenceRecord, TRAINING_CONFIG, ATHLETES_LIST } from '../types';
 import { getDayName } from '../utils';
+import { sincronizarComSheets } from '../services/frequenciaService';
 
 interface AdminDashboardProps {
   records: PresenceRecord[];
@@ -67,6 +68,13 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ records }) => {
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [records, selectedMonth, trainingDatesInMonth]);
+
+    // Sincronizar frequência com Google Sheets quando records mudam
+  useEffect(() => {
+    if (records && records.length > 0) {
+      sincronizarComSheets(records).catch(err => console.error('Erro ao sincronizar:', err));
+    }
+  }, [records]);
 
   const handleExportExcel = () => {
     const header1 = ["Atleta/data", ...trainingDatesInMonth.map(d => d.toLocaleDateString('pt-BR')), "Total"];
