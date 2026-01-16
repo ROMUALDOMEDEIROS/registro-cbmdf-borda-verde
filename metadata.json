@@ -1,0 +1,7 @@
+{
+  "name": "Registro CBMDF - Borda Verde V2",
+  "description": "Sistema de registro de presença para a equipe de Cross Country do CBMDF com geofencing e validação de horário.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
