@@ -26,7 +26,9 @@ de API, não envia o texto para nenhum servidor e funciona offline — as vozes 
 as instaladas no próprio dispositivo.
 
 - Digite, cole ou carregue um arquivo `.txt` / `.md` / `.csv`
-- Escolha a voz (filtrada por português, com opção de ver todos os idiomas)
+- Escolha entre uma voz **feminina** e uma **masculina** em português do Brasil,
+  selecionadas automaticamente entre as mais naturais do aparelho — a lista
+  completa rotula cada voz por gênero e por qualidade (natural, comum, robótica)
 - Ajuste velocidade, tom e volume — as preferências e o último texto ficam salvos
 - Pausar, retomar e parar, com destaque da palavra sendo lida e barra de progresso
 

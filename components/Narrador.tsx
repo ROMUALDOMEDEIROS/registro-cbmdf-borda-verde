@@ -13,6 +13,7 @@ import {
   RotateCcw,
   AlertTriangle,
   FileText,
+  Sparkles,
 } from 'lucide-react';
 import {
   Narrador as MotorNarracao,
@@ -21,8 +22,12 @@ import {
   contarPalavras,
   estimarDuracao,
   formatarDuracao,
+  generoDaVoz,
+  melhorVoz,
   narracaoDisponivel,
   ordenarVozes,
+  qualidadeDaVoz,
+  type Genero,
 } from '../services/narracaoService';
 
 const CHAVE_TEXTO = 'narrador_texto';
@@ -36,6 +41,18 @@ interface Preferencias {
   volume: number;
   apenasPortugues: boolean;
 }
+
+const DESCRICAO_GENERO: Record<Genero, string> = {
+  feminina: 'feminina',
+  masculina: 'masculina',
+  desconhecido: 'gênero indefinido',
+};
+
+const DESCRICAO_QUALIDADE: Record<ReturnType<typeof qualidadeDaVoz>, string> = {
+  natural: 'natural',
+  padrao: 'comum',
+  robotica: 'robótica',
+};
 
 const PREFERENCIAS_PADRAO: Preferencias = {
   vozURI: '',
@@ -110,6 +127,19 @@ const Narrador: React.FC = () => {
       null
     );
   }, [vozesVisiveis, preferencias.vozURI]);
+
+  // Melhor voz natural de cada gênero em português, para a escolha rápida.
+  const sugestoes = useMemo(
+    () => ({
+      feminina: melhorVoz(vozes, 'feminina'),
+      masculina: melhorVoz(vozes, 'masculina'),
+    }),
+    [vozes],
+  );
+
+  const faltando = vozesCarregadas && vozes.length > 0
+    ? (['feminina', 'masculina'] as const).filter((genero) => !sugestoes[genero])
+    : [];
 
   const palavras = contarPalavras(texto);
   const duracao = estimarDuracao(texto, preferencias.velocidade);
@@ -325,6 +355,39 @@ const Narrador: React.FC = () => {
                 {preferencias.apenasPortugues ? 'Ver todos os idiomas' : 'Somente português'}
               </button>
             </div>
+
+            {/* Escolha rápida: a voz mais natural de cada gênero em português */}
+            <div className="grid grid-cols-2 gap-3">
+              {(['feminina', 'masculina'] as const).map((genero) => {
+                const sugestao = sugestoes[genero];
+                const ativa = !!sugestao && sugestao.voiceURI === vozSelecionada?.voiceURI;
+
+                return (
+                  <button
+                    key={genero}
+                    type="button"
+                    onClick={() => sugestao && atualizarPreferencia('vozURI', sugestao.voiceURI)}
+                    disabled={!sugestao || narrando}
+                    className={`p-4 rounded-2xl border-2 text-left transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                      ativa
+                        ? 'border-primary bg-primary/5'
+                        : 'border-gray-100 dark:border-white/10 hover:border-primary'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 dark:text-gray-400">
+                      {genero === 'feminina' ? 'Feminina' : 'Masculina'}
+                      {sugestao && qualidadeDaVoz(sugestao) === 'natural' && (
+                        <Sparkles size={11} className="text-primary" />
+                      )}
+                    </span>
+                    <span className="block mt-1 text-xs font-bold truncate">
+                      {sugestao ? sugestao.name : 'Não instalada'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
             <select
               value={vozSelecionada?.voiceURI || ''}
               onChange={(e) => atualizarPreferencia('vozURI', e.target.value)}
@@ -336,11 +399,21 @@ const Narrador: React.FC = () => {
               ) : (
                 vozesVisiveis.map((voz) => (
                   <option key={voz.voiceURI} value={voz.voiceURI}>
-                    {voz.name} ({voz.lang})
+                    {voz.name} ({voz.lang}) — {DESCRICAO_GENERO[generoDaVoz(voz)]} ·{' '}
+                    {DESCRICAO_QUALIDADE[qualidadeDaVoz(voz)]}
                   </option>
                 ))
               )}
             </select>
+
+            {faltando.length > 0 && (
+              <p className="text-[11px] leading-relaxed text-gray-500 dark:text-gray-400 font-medium px-1">
+                Este aparelho não tem voz{faltando.length === 1 ? '' : 'es'}{' '}
+                <strong>{faltando.map((g) => DESCRICAO_GENERO[g]).join(' nem ')}</strong> em português.
+                Instale mais vozes nas configurações do sistema — o guia explica o caminho em cada
+                plataforma.
+              </p>
+            )}
           </div>
 
           {/* Ajustes de fala */}

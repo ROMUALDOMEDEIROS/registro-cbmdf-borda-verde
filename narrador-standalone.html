@@ -306,6 +306,60 @@
     font-weight: 600;
   }
 
+  .escolha-rapida {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+
+  .voz-atalho {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.8rem;
+    background: transparent;
+    color: inherit;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .voz-atalho:hover:not(:disabled) { border-color: var(--verde); }
+  .voz-atalho:disabled { opacity: 0.4; cursor: default; }
+  .voz-atalho.ativa { border-color: var(--verde); background: var(--verde-tenue); }
+
+  .voz-genero {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.17em;
+    color: var(--tinta-suave);
+  }
+
+  /* Marca discreta para as vozes neurais, que soam menos robóticas. */
+  .voz-atalho.natural .voz-genero::after {
+    content: " ✦";
+    color: var(--verde);
+  }
+
+  .voz-nome {
+    font-size: 0.78rem;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .falta-voz {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.5;
+    color: var(--tinta-suave);
+  }
+
   input[type="range"] {
     width: 100%;
     accent-color: var(--verde);
@@ -478,7 +532,18 @@
           <label class="rotulo" for="voz">Voz</label>
           <button type="button" class="link" id="btn-idiomas">Ver todos os idiomas</button>
         </div>
+        <div class="escolha-rapida">
+          <button type="button" class="voz-atalho" id="voz-feminina">
+            <span class="voz-genero">Feminina</span>
+            <span class="voz-nome">—</span>
+          </button>
+          <button type="button" class="voz-atalho" id="voz-masculina">
+            <span class="voz-genero">Masculina</span>
+            <span class="voz-nome">—</span>
+          </button>
+        </div>
         <select id="voz"></select>
+        <p class="falta-voz" id="falta-voz" hidden></p>
       </div>
 
       <div class="campo">
@@ -549,7 +614,7 @@
     var lido = el('lido'), atual = el('atual'), resto = el('resto');
     var progresso = el('progresso'), medidas = el('medidas');
     var aviso = el('aviso'), avisoTexto = el('aviso-texto');
-    var seletorVoz = el('voz'), btnIdiomas = el('btn-idiomas');
+    var seletorVoz = el('voz'), btnIdiomas = el('btn-idiomas'), faltaVoz = el('falta-voz');
     var btnTocar = el('btn-tocar'), btnParar = el('btn-parar');
     var btnArquivo = el('btn-arquivo'), arquivo = el('arquivo');
     var btnLimpar = el('btn-limpar'), btnPadrao = el('btn-padrao');
@@ -640,6 +705,84 @@
 
     /* ---------- Vozes ---------- */
 
+    function semAcento(texto) {
+      return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
+    // O Android embute o gênero no nome da voz ("pt-br-x-afm#female_1-local").
+    // "female" tem de ser testado antes de "male", que é seu sufixo.
+    var MARCADOR_FEMININO = /(^|[^a-z])(fe-?male|feminin[ao]|mulher)([^a-z]|$)/;
+    var MARCADOR_MASCULINO = /(^|[^a-z])(male|masculin[ao]|homem)([^a-z]|$)/;
+
+    var NOMES_FEMININOS = ['luciana', 'maria', 'francisca', 'camila', 'fernanda', 'vitoria',
+      'leticia', 'bianca', 'manuela', 'isabela', 'yara', 'giovanna', 'brenda', 'elza',
+      'joana', 'catarina', 'ines', 'raquel', 'helena', 'cecilia', 'margarida'];
+
+    var NOMES_MASCULINOS = ['daniel', 'felipe', 'ricardo', 'antonio', 'julio', 'fabio',
+      'thiago', 'donato', 'humberto', 'leandro', 'valter', 'nicolau', 'eddy', 'heitor',
+      'duarte', 'joaquim', 'fernando', 'macario', 'tomas'];
+
+    // Vozes sem sinal de gênero no nome, mas de timbre conhecido.
+    var GENERO_POR_NOME = {
+      'google portugues do brasil': 'feminina',
+      'google portugues': 'feminina'
+    };
+
+    function generoDaVoz(voz) {
+      var conhecida = GENERO_POR_NOME[semAcento(voz.name).trim()];
+      if (conhecida) return conhecida;
+
+      var texto = semAcento(voz.name + ' ' + voz.voiceURI);
+      if (MARCADOR_FEMININO.test(texto)) return 'feminina';
+      if (MARCADOR_MASCULINO.test(texto)) return 'masculina';
+
+      var palavras = texto.split(/[^a-z]+/);
+      for (var i = 0; i < palavras.length; i++) {
+        if (NOMES_FEMININOS.indexOf(palavras[i]) !== -1) return 'feminina';
+        if (NOMES_MASCULINOS.indexOf(palavras[i]) !== -1) return 'masculina';
+      }
+      return 'desconhecido';
+    }
+
+    // Motores antigos (eSpeak, SAPI "Desktop", Pico) soam metálicos; os neurais
+    // recentes se anunciam no próprio nome.
+    var SINAIS_ROBOTICOS = /(espeak|e-speak|pico|compact|eloquence|festival|flite|desktop)/;
+    var SINAIS_NATURAIS = /(google|neural|natural|enhanced|aprimorad|premium|siri|wavenet|multilingual)/;
+
+    function qualidadeDaVoz(voz) {
+      var texto = semAcento(voz.name + ' ' + voz.voiceURI);
+      if (SINAIS_ROBOTICOS.test(texto)) return 'robotica';
+      if (SINAIS_NATURAIS.test(texto)) return 'natural';
+      return 'padrao';
+    }
+
+    var PESO_QUALIDADE = { natural: 0, padrao: 1, robotica: 2 };
+    var DESCRICAO_GENERO = {
+      feminina: 'feminina', masculina: 'masculina', desconhecido: 'gênero indefinido'
+    };
+    var DESCRICAO_QUALIDADE = { natural: 'natural', padrao: 'comum', robotica: 'robótica' };
+
+    function prioridadeDoIdioma(voz) {
+      var idioma = voz.lang.toLowerCase().replace('_', '-');
+      if (idioma.indexOf('pt-br') === 0) return 0;
+      if (idioma.indexOf('pt') === 0) return 1;
+      return 2;
+    }
+
+    // Melhor voz de um gênero em português: pt-BR na frente, depois as naturais.
+    function melhorVoz(genero) {
+      var candidatas = vozes.filter(function (v) {
+        return v.lang.toLowerCase().indexOf('pt') === 0 && generoDaVoz(v) === genero;
+      });
+      if (!candidatas.length) return null;
+
+      return candidatas.sort(function (a, b) {
+        return prioridadeDoIdioma(a) - prioridadeDoIdioma(b) ||
+          PESO_QUALIDADE[qualidadeDaVoz(a)] - PESO_QUALIDADE[qualidadeDaVoz(b)] ||
+          a.name.localeCompare(b.name, 'pt-BR');
+      })[0];
+    }
+
     function vozesVisiveis() {
       var pt = vozes.filter(function (v) { return v.lang.toLowerCase().indexOf('pt') === 0; });
       return apenasPortugues && pt.length ? pt : vozes;
@@ -661,13 +804,43 @@
       lista.forEach(function (voz) {
         var opcao = document.createElement('option');
         opcao.value = voz.voiceURI;
-        opcao.textContent = voz.name + ' (' + voz.lang + ')';
+        opcao.textContent = voz.name + ' (' + voz.lang + ') — ' +
+          DESCRICAO_GENERO[generoDaVoz(voz)] + ' · ' + DESCRICAO_QUALIDADE[qualidadeDaVoz(voz)];
         seletorVoz.appendChild(opcao);
       });
 
       var existe = lista.some(function (v) { return v.voiceURI === vozURI; });
       seletorVoz.value = existe ? vozURI : lista[0].voiceURI;
       vozURI = seletorVoz.value;
+      atualizarEscolhaRapida();
+    }
+
+    // Botões "Feminina" / "Masculina": apontam para a voz mais natural de cada
+    // gênero e avisam quando o aparelho não tem nenhuma.
+    function atualizarEscolhaRapida() {
+      var ausentes = [];
+
+      ['feminina', 'masculina'].forEach(function (genero) {
+        var botao = document.getElementById('voz-' + genero);
+        var nome = botao.querySelector('.voz-nome');
+        var sugestao = melhorVoz(genero);
+
+        botao.dataset.voiceUri = sugestao ? sugestao.voiceURI : '';
+        botao.disabled = !sugestao || falando;
+        nome.textContent = sugestao ? sugestao.name : 'Não instalada';
+        botao.classList.toggle('ativa', !!sugestao && sugestao.voiceURI === vozURI);
+        botao.classList.toggle('natural', !!sugestao && qualidadeDaVoz(sugestao) === 'natural');
+
+        if (!sugestao) ausentes.push(DESCRICAO_GENERO[genero]);
+      });
+
+      if (ausentes.length && vozes.length) {
+        faltaVoz.textContent = 'Este aparelho não tem voz' + (ausentes.length === 1 ? ' ' : 'es ') +
+          ausentes.join(' nem ') + ' em português. Instale mais vozes nas configurações do sistema.';
+        faltaVoz.hidden = false;
+      } else {
+        faltaVoz.hidden = true;
+      }
     }
 
     function vozEscolhida() {
@@ -681,16 +854,11 @@
       var lista = window.speechSynthesis.getVoices();
       if (!lista.length) return false;
 
-      // Português do Brasil primeiro, depois outros portugueses, depois o resto.
-      var prioridade = function (voz) {
-        var idioma = voz.lang.toLowerCase().replace('_', '-');
-        if (idioma.indexOf('pt-br') === 0) return 0;
-        if (idioma.indexOf('pt') === 0) return 1;
-        return 2;
-      };
-
+      // Português do Brasil primeiro, depois as vozes mais naturais.
       vozes = lista.slice().sort(function (a, b) {
-        return prioridade(a) - prioridade(b) || a.name.localeCompare(b.name, 'pt-BR');
+        return prioridadeDoIdioma(a) - prioridadeDoIdioma(b) ||
+          PESO_QUALIDADE[qualidadeDaVoz(a)] - PESO_QUALIDADE[qualidadeDaVoz(b)] ||
+          a.name.localeCompare(b.name, 'pt-BR');
       });
 
       preencherVozes();
@@ -824,6 +992,7 @@
       btnTocar.textContent = 'Narrar texto';
       btnParar.classList.add('oculto');
       seletorVoz.disabled = vozes.length === 0;
+      atualizarEscolhaRapida();
       progresso.style.width = '0%';
       lido.textContent = atual.textContent = resto.textContent = '';
     }
@@ -879,7 +1048,25 @@
 
     seletorVoz.addEventListener('change', function () {
       vozURI = seletorVoz.value;
+      atualizarEscolhaRapida();
       salvarPreferencias();
+    });
+
+    ['feminina', 'masculina'].forEach(function (genero) {
+      el('voz-' + genero).addEventListener('click', function () {
+        var escolhida = this.dataset.voiceUri;
+        if (!escolhida) return;
+
+        // A voz sugerida pode estar fora da lista visível (ex.: filtro de
+        // idioma ativo); nesse caso solta o filtro para que ela apareça.
+        vozURI = escolhida;
+        if (!Array.prototype.some.call(seletorVoz.options, function (o) { return o.value === escolhida; })) {
+          apenasPortugues = false;
+          btnIdiomas.textContent = 'Somente português';
+        }
+        preencherVozes();
+        salvarPreferencias();
+      });
     });
 
     Object.keys(controles).forEach(function (nome) {

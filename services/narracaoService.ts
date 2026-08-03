@@ -84,6 +84,85 @@ export function vozesEmPortugues(vozes: SpeechSynthesisVoice[]): SpeechSynthesis
   return vozes.filter((voz) => voz.lang.toLowerCase().startsWith('pt'));
 }
 
+export type Genero = 'feminina' | 'masculina' | 'desconhecido';
+export type Qualidade = 'natural' | 'padrao' | 'robotica';
+
+function semAcento(texto: string): string {
+  return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+
+// O Android nomeia as vozes do Google com o gênero embutido
+// (ex.: "pt-br-x-afm#female_1-local"). "female" precisa ser testado antes de
+// "male", que é seu sufixo — daí a borda à esquerda em ambos os padrões.
+const MARCADOR_FEMININO = /(^|[^a-z])(fe-?male|feminin[ao]|mulher)([^a-z]|$)/;
+const MARCADOR_MASCULINO = /(^|[^a-z])(male|masculin[ao]|homem)([^a-z]|$)/;
+
+// Nomes próprios usados pelos sintetizadores de Windows, iOS e Android nas
+// vozes em português. Só entram aqui nomes cujo gênero é inequívoco.
+const NOMES_FEMININOS = new Set([
+  'luciana', 'maria', 'francisca', 'camila', 'fernanda', 'vitoria', 'leticia',
+  'bianca', 'manuela', 'isabela', 'yara', 'giovanna', 'brenda', 'elza',
+  'joana', 'catarina', 'ines', 'raquel', 'helena', 'cecilia', 'margarida',
+]);
+
+const NOMES_MASCULINOS = new Set([
+  'daniel', 'felipe', 'ricardo', 'antonio', 'julio', 'fabio', 'thiago',
+  'donato', 'humberto', 'leandro', 'valter', 'nicolau', 'eddy', 'heitor',
+  'duarte', 'joaquim', 'fernando', 'macario', 'tomas',
+]);
+
+// Vozes cujo nome não carrega nenhum sinal de gênero, mas cujo timbre é
+// conhecido. "Google português do Brasil" é a voz padrão do Chrome no desktop.
+const GENERO_POR_NOME: Record<string, Genero> = {
+  'google portugues do brasil': 'feminina',
+  'google portugues': 'feminina',
+};
+
+export function generoDaVoz(voz: SpeechSynthesisVoice): Genero {
+  const texto = semAcento(`${voz.name} ${voz.voiceURI}`);
+
+  const conhecida = GENERO_POR_NOME[semAcento(voz.name).trim()];
+  if (conhecida) return conhecida;
+
+  if (MARCADOR_FEMININO.test(texto)) return 'feminina';
+  if (MARCADOR_MASCULINO.test(texto)) return 'masculina';
+
+  for (const palavra of texto.split(/[^a-z]+/)) {
+    if (NOMES_FEMININOS.has(palavra)) return 'feminina';
+    if (NOMES_MASCULINOS.has(palavra)) return 'masculina';
+  }
+
+  return 'desconhecido';
+}
+
+// Motores antigos (eSpeak, SAPI "Desktop", Pico) soam metálicos; os neurais
+// mais recentes se anunciam no próprio nome.
+const SINAIS_ROBOTICOS = /(espeak|e-speak|pico|compact|eloquence|festival|flite|desktop)/;
+const SINAIS_NATURAIS = /(google|neural|natural|enhanced|aprimorad|premium|siri|wavenet|multilingual)/;
+
+export function qualidadeDaVoz(voz: SpeechSynthesisVoice): Qualidade {
+  const texto = semAcento(`${voz.name} ${voz.voiceURI}`);
+  if (SINAIS_ROBOTICOS.test(texto)) return 'robotica';
+  if (SINAIS_NATURAIS.test(texto)) return 'natural';
+  return 'padrao';
+}
+
+const PESO_QUALIDADE: Record<Qualidade, number> = { natural: 0, padrao: 1, robotica: 2 };
+
+// Melhor voz de um gênero: português do Brasil na frente, depois as mais
+// naturais. Retorna null quando o aparelho não tem nenhuma voz desse gênero.
+export function melhorVoz(vozes: SpeechSynthesisVoice[], genero: Genero): SpeechSynthesisVoice | null {
+  const candidatas = vozesEmPortugues(vozes).filter((voz) => generoDaVoz(voz) === genero);
+  if (candidatas.length === 0) return null;
+
+  return [...candidatas].sort(
+    (a, b) =>
+      prioridadeDoIdioma(a) - prioridadeDoIdioma(b) ||
+      PESO_QUALIDADE[qualidadeDaVoz(a)] - PESO_QUALIDADE[qualidadeDaVoz(b)] ||
+      a.name.localeCompare(b.name, 'pt-BR'),
+  )[0];
+}
+
 // Português do Brasil primeiro, depois outras variantes de português, depois
 // os demais idiomas — assim a voz pré-selecionada já é a esperada aqui.
 function prioridadeDoIdioma(voz: SpeechSynthesisVoice): number {
@@ -95,7 +174,10 @@ function prioridadeDoIdioma(voz: SpeechSynthesisVoice): number {
 
 export function ordenarVozes(vozes: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
   return [...vozes].sort(
-    (a, b) => prioridadeDoIdioma(a) - prioridadeDoIdioma(b) || a.name.localeCompare(b.name, 'pt-BR'),
+    (a, b) =>
+      prioridadeDoIdioma(a) - prioridadeDoIdioma(b) ||
+      PESO_QUALIDADE[qualidadeDaVoz(a)] - PESO_QUALIDADE[qualidadeDaVoz(b)] ||
+      a.name.localeCompare(b.name, 'pt-BR'),
   );
 }
 
