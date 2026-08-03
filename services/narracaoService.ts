@@ -84,13 +84,19 @@ export function vozesEmPortugues(vozes: SpeechSynthesisVoice[]): SpeechSynthesis
   return vozes.filter((voz) => voz.lang.toLowerCase().startsWith('pt'));
 }
 
+// Português do Brasil primeiro, depois outras variantes de português, depois
+// os demais idiomas — assim a voz pré-selecionada já é a esperada aqui.
+function prioridadeDoIdioma(voz: SpeechSynthesisVoice): number {
+  const idioma = voz.lang.toLowerCase().replace('_', '-');
+  if (idioma.startsWith('pt-br')) return 0;
+  if (idioma.startsWith('pt')) return 1;
+  return 2;
+}
+
 export function ordenarVozes(vozes: SpeechSynthesisVoice[]): SpeechSynthesisVoice[] {
-  return [...vozes].sort((a, b) => {
-    const aPt = a.lang.toLowerCase().startsWith('pt') ? 0 : 1;
-    const bPt = b.lang.toLowerCase().startsWith('pt') ? 0 : 1;
-    if (aPt !== bPt) return aPt - bPt;
-    return a.name.localeCompare(b.name, 'pt-BR');
-  });
+  return [...vozes].sort(
+    (a, b) => prioridadeDoIdioma(a) - prioridadeDoIdioma(b) || a.name.localeCompare(b.name, 'pt-BR'),
+  );
 }
 
 export function contarPalavras(texto: string): number {

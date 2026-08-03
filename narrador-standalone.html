@@ -1,0 +1,928 @@
+<title>Narrador — Texto em voz alta</title>
+
+<style>
+  :root {
+    color-scheme: light dark;
+
+    --verde: #0b894a;
+    --verde-forte: #086637;
+    --verde-tenue: rgba(11, 137, 74, 0.12);
+    --laranja: #f06335;
+    --papel: #f6f2ee;
+    --papel-alto: #fffdfa;
+    --tinta: #14231b;
+    --tinta-suave: #5d6b63;
+    --linha: rgba(20, 35, 27, 0.13);
+    --sombra: 0 24px 60px -32px rgba(20, 35, 27, 0.5);
+
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --serifada: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --verde: #2fb26b;
+      --verde-forte: #0b894a;
+      --verde-tenue: rgba(47, 178, 107, 0.16);
+      --laranja: #ff7a4d;
+      --papel: #171d1a;
+      --papel-alto: #202826;
+      --tinta: #eaefec;
+      --tinta-suave: #93a49a;
+      --linha: rgba(255, 255, 255, 0.13);
+      --sombra: 0 24px 60px -32px rgba(0, 0, 0, 0.8);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --verde: #2fb26b;
+    --verde-forte: #0b894a;
+    --verde-tenue: rgba(47, 178, 107, 0.16);
+    --laranja: #ff7a4d;
+    --papel: #171d1a;
+    --papel-alto: #202826;
+    --tinta: #eaefec;
+    --tinta-suave: #93a49a;
+    --linha: rgba(255, 255, 255, 0.13);
+    --sombra: 0 24px 60px -32px rgba(0, 0, 0, 0.8);
+  }
+
+  :root[data-theme="light"] {
+    --verde: #0b894a;
+    --verde-forte: #086637;
+    --verde-tenue: rgba(11, 137, 74, 0.12);
+    --laranja: #f06335;
+    --papel: #f6f2ee;
+    --papel-alto: #fffdfa;
+    --tinta: #14231b;
+    --tinta-suave: #5d6b63;
+    --linha: rgba(20, 35, 27, 0.13);
+    --sombra: 0 24px 60px -32px rgba(20, 35, 27, 0.5);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: var(--sans);
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .app {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1.75rem 1.25rem 10.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* ---------- Cabeçalho ---------- */
+
+  .topo {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+  }
+
+  .marca {
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.85rem;
+    background: linear-gradient(140deg, var(--verde), var(--verde-forte));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.16rem;
+    flex: none;
+  }
+
+  .marca i {
+    display: block;
+    width: 0.17rem;
+    border-radius: 0.17rem;
+    background: #fff;
+  }
+
+  .marca i:nth-child(1), .marca i:nth-child(5) { height: 0.5rem; }
+  .marca i:nth-child(2), .marca i:nth-child(4) { height: 0.95rem; }
+  .marca i:nth-child(3) { height: 1.4rem; }
+
+  .titulo { display: flex; flex-direction: column; gap: 0.15rem; }
+
+  h1 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitulo {
+    margin: 0;
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.19em;
+    color: var(--tinta-suave);
+  }
+
+  /* ---------- Painel de leitura ---------- */
+
+  .palco {
+    background: var(--papel-alto);
+    border: 1px solid var(--linha);
+    border-radius: 1.4rem;
+    box-shadow: var(--sombra);
+    overflow: hidden;
+  }
+
+  .barra-progresso {
+    height: 3px;
+    background: var(--linha);
+  }
+
+  .barra-progresso span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: var(--verde);
+    transition: width 0.18s linear;
+  }
+
+  .rotulos {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 1rem;
+    padding: 0.9rem 1.15rem 0;
+  }
+
+  .rotulo {
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.19em;
+    color: var(--tinta-suave);
+  }
+
+  .medidas {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--tinta-suave);
+  }
+
+  #editor, #leitura {
+    width: 100%;
+    min-height: 14rem;
+    max-height: 26rem;
+    padding: 0.85rem 1.15rem 1.3rem;
+    font-family: var(--serifada);
+    font-size: 1.06rem;
+    line-height: 1.65;
+  }
+
+  #editor {
+    display: block;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    resize: vertical;
+    outline: none;
+  }
+
+  #editor::placeholder { color: var(--tinta-suave); opacity: 0.75; }
+
+  #leitura {
+    display: none;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .narrando #editor { display: none; }
+  .narrando #leitura { display: block; }
+
+  #lido { color: var(--tinta-suave); }
+
+  #atual {
+    background: var(--verde-tenue);
+    color: inherit;
+    border-radius: 0.2rem;
+    box-shadow: inset 0 -2px 0 var(--verde);
+    padding: 0.05em 0.06em;
+  }
+
+  /* ---------- Ações sobre o texto ---------- */
+
+  .acoes {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0 1.15rem 1.15rem;
+  }
+
+  .fantasma {
+    flex: 1;
+    padding: 0.7rem 0.5rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.8rem;
+    background: transparent;
+    color: var(--tinta-suave);
+    font-family: inherit;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+
+  .fantasma:hover:not(:disabled) { color: var(--verde); border-color: var(--verde); }
+  .fantasma:disabled { opacity: 0.4; cursor: default; }
+
+  /* ---------- Ajustes ---------- */
+
+  details.ajustes {
+    background: var(--papel-alto);
+    border: 1px solid var(--linha);
+    border-radius: 1.4rem;
+    overflow: hidden;
+  }
+
+  details.ajustes > summary {
+    padding: 1rem 1.15rem;
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.19em;
+    color: var(--tinta-suave);
+  }
+
+  details.ajustes > summary::-webkit-details-marker { display: none; }
+  details.ajustes > summary::after { content: "+"; font-size: 1rem; line-height: 1; }
+  details.ajustes[open] > summary::after { content: "–"; }
+
+  .corpo-ajustes {
+    padding: 0 1.15rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .campo { display: flex; flex-direction: column; gap: 0.45rem; }
+
+  .campo-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .valor {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--verde);
+    font-weight: 700;
+  }
+
+  select {
+    width: 100%;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--linha);
+    border-radius: 0.8rem;
+    background: var(--papel);
+    color: var(--tinta);
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 600;
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--verde);
+    cursor: pointer;
+  }
+
+  .link {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: var(--verde);
+    font-family: inherit;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    cursor: pointer;
+  }
+
+  /* ---------- Aviso ---------- */
+
+  .aviso {
+    display: none;
+    gap: 0.7rem;
+    align-items: flex-start;
+    padding: 0.9rem 1.05rem;
+    border: 1px solid var(--laranja);
+    border-radius: 1rem;
+    background: color-mix(in srgb, var(--laranja) 10%, transparent);
+    color: var(--tinta);
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .aviso.visivel { display: flex; }
+  .aviso strong { color: var(--laranja); }
+
+  /* ---------- Transporte ---------- */
+
+  .transporte {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 0.85rem 1.25rem calc(0.85rem + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--papel) 88%, transparent);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--linha);
+  }
+
+  .transporte-interno {
+    max-width: 40rem;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+  }
+
+  .equalizador {
+    display: flex;
+    align-items: center;
+    gap: 0.18rem;
+    height: 2.9rem;
+    padding: 0 0.55rem;
+    flex: none;
+  }
+
+  .equalizador b {
+    display: block;
+    width: 0.19rem;
+    height: 0.4rem;
+    border-radius: 0.19rem;
+    background: var(--tinta-suave);
+    opacity: 0.45;
+  }
+
+  .narrando .equalizador b {
+    background: var(--verde);
+    opacity: 1;
+    animation: pulsar 0.85s ease-in-out infinite alternate;
+  }
+
+  .narrando .equalizador b:nth-child(2) { animation-delay: 0.12s; }
+  .narrando .equalizador b:nth-child(3) { animation-delay: 0.26s; }
+  .narrando .equalizador b:nth-child(4) { animation-delay: 0.06s; }
+  .narrando .equalizador b:nth-child(5) { animation-delay: 0.19s; }
+
+  .pausado .equalizador b { animation-play-state: paused; }
+
+  @keyframes pulsar {
+    from { height: 0.4rem; }
+    to { height: 1.7rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .narrando .equalizador b { animation: none; height: 1rem; }
+    .barra-progresso span { transition: none; }
+  }
+
+  .botao {
+    flex: 1;
+    padding: 0.95rem 0.75rem;
+    border: 0;
+    border-radius: 0.9rem;
+    background: var(--verde);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.17em;
+    cursor: pointer;
+    transition: filter 0.15s, transform 0.1s;
+  }
+
+  .botao:hover:not(:disabled) { filter: brightness(1.08); }
+  .botao:active:not(:disabled) { transform: scale(0.985); }
+  .botao:disabled { opacity: 0.4; cursor: default; }
+  .botao.parar { flex: 0 0 8rem; background: var(--laranja); }
+
+  :is(button, select, input, textarea, summary):focus-visible {
+    outline: 2px solid var(--verde);
+    outline-offset: 2px;
+  }
+
+  .nota {
+    text-align: center;
+    font-size: 0.66rem;
+    line-height: 1.6;
+    color: var(--tinta-suave);
+  }
+
+  .oculto { display: none !important; }
+</style>
+
+<main class="app" id="app">
+  <div class="topo">
+    <div class="marca" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="titulo">
+      <h1>Narrador</h1>
+      <p class="subtitulo">Texto em voz alta</p>
+    </div>
+  </div>
+
+  <p class="aviso" id="aviso" role="status"><span id="aviso-texto"></span></p>
+
+  <section class="palco">
+    <div class="barra-progresso"><span id="progresso"></span></div>
+
+    <div class="rotulos">
+      <span class="rotulo">Seu texto</span>
+      <span class="medidas" id="medidas">0 palavras · 0:00</span>
+    </div>
+
+    <textarea id="editor" placeholder="Digite, cole o texto aqui ou carregue um arquivo."></textarea>
+    <div id="leitura" aria-live="off"><span id="lido"></span><mark id="atual"></mark><span id="resto"></span></div>
+
+    <div class="acoes">
+      <button type="button" class="fantasma" id="btn-arquivo">Carregar arquivo</button>
+      <button type="button" class="fantasma" id="btn-limpar">Limpar</button>
+      <input type="file" id="arquivo" accept=".txt,.md,.csv,text/plain" class="oculto">
+    </div>
+  </section>
+
+  <details class="ajustes" open>
+    <summary>Voz e ajustes</summary>
+    <div class="corpo-ajustes">
+      <div class="campo">
+        <div class="campo-topo">
+          <label class="rotulo" for="voz">Voz</label>
+          <button type="button" class="link" id="btn-idiomas">Ver todos os idiomas</button>
+        </div>
+        <select id="voz"></select>
+      </div>
+
+      <div class="campo">
+        <div class="campo-topo">
+          <label class="rotulo" for="velocidade">Velocidade</label>
+          <span class="valor" id="valor-velocidade">1.0x</span>
+        </div>
+        <input type="range" id="velocidade" min="0.5" max="2" step="0.1" value="1">
+      </div>
+
+      <div class="campo">
+        <div class="campo-topo">
+          <label class="rotulo" for="tom">Tom</label>
+          <span class="valor" id="valor-tom">1.0</span>
+        </div>
+        <input type="range" id="tom" min="0.5" max="2" step="0.1" value="1">
+      </div>
+
+      <div class="campo">
+        <div class="campo-topo">
+          <label class="rotulo" for="volume">Volume</label>
+          <span class="valor" id="valor-volume">100%</span>
+        </div>
+        <input type="range" id="volume" min="0" max="1" step="0.05" value="1">
+      </div>
+
+      <button type="button" class="fantasma" id="btn-padrao">Voltar ao padrão</button>
+    </div>
+  </details>
+
+  <p class="nota">
+    As vozes vêm do próprio aparelho — nada é enviado para servidores.<br>
+    Para virar app: no Safari (iPhone) ou Chrome (Android), use <strong>Adicionar à tela de início</strong>.
+  </p>
+</main>
+
+<div class="transporte">
+  <div class="transporte-interno">
+    <div class="equalizador" aria-hidden="true"><b></b><b></b><b></b><b></b><b></b></div>
+    <button type="button" class="botao" id="btn-tocar">Narrar texto</button>
+    <button type="button" class="botao parar oculto" id="btn-parar">Parar</button>
+  </div>
+</div>
+
+<script>
+  (function () {
+    'use strict';
+
+    var CHAVE_TEXTO = 'narrador_texto';
+    var CHAVE_PREFS = 'narrador_preferencias';
+    var PALAVRAS_POR_MINUTO = 150;
+    var TAMANHO_BLOCO = 160;
+
+    var MENSAGENS = {
+      'synthesis-failed': 'O motor de voz do aparelho falhou. Verifique se há vozes instaladas no sistema.',
+      'synthesis-unavailable': 'Nenhum motor de voz disponível neste aparelho.',
+      'audio-busy': 'A saída de áudio está ocupada. Tente de novo em instantes.',
+      'audio-hardware': 'Nenhuma saída de áudio disponível.',
+      'language-unavailable': 'O idioma da voz escolhida não está disponível.',
+      'voice-unavailable': 'A voz escolhida não está mais disponível. Escolha outra.',
+      'not-allowed': 'O navegador bloqueou a narração. Toque na tela e tente de novo.',
+      'network': 'Esta voz depende de conexão e a rede falhou. Escolha uma voz local.'
+    };
+
+    var el = function (id) { return document.getElementById(id); };
+
+    var app = el('app'), editor = el('editor'), leitura = el('leitura');
+    var lido = el('lido'), atual = el('atual'), resto = el('resto');
+    var progresso = el('progresso'), medidas = el('medidas');
+    var aviso = el('aviso'), avisoTexto = el('aviso-texto');
+    var seletorVoz = el('voz'), btnIdiomas = el('btn-idiomas');
+    var btnTocar = el('btn-tocar'), btnParar = el('btn-parar');
+    var btnArquivo = el('btn-arquivo'), arquivo = el('arquivo');
+    var btnLimpar = el('btn-limpar'), btnPadrao = el('btn-padrao');
+
+    var controles = {
+      velocidade: { campo: el('velocidade'), saida: el('valor-velocidade'), padrao: 1, formatar: function (v) { return v.toFixed(1) + 'x'; } },
+      tom: { campo: el('tom'), saida: el('valor-tom'), padrao: 1, formatar: function (v) { return v.toFixed(1); } },
+      volume: { campo: el('volume'), saida: el('valor-volume'), padrao: 1, formatar: function (v) { return Math.round(v * 100) + '%'; } }
+    };
+
+    var suportado = 'speechSynthesis' in window;
+    var vozes = [];
+    var apenasPortugues = true;
+    var vozURI = '';
+    var falando = false;
+    var pausado = false;
+    var blocos = [];
+    var indiceBloco = 0;
+    var manterVivo = null;
+
+    /* ---------- Preferências ---------- */
+
+    function carregarPreferencias() {
+      var salvas;
+      try { salvas = JSON.parse(localStorage.getItem(CHAVE_PREFS) || '{}'); } catch (e) { salvas = {}; }
+      Object.keys(controles).forEach(function (nome) {
+        var valor = typeof salvas[nome] === 'number' ? salvas[nome] : controles[nome].padrao;
+        controles[nome].campo.value = valor;
+      });
+      if (typeof salvas.apenasPortugues === 'boolean') apenasPortugues = salvas.apenasPortugues;
+      vozURI = salvas.vozURI || '';
+      editor.value = localStorage.getItem(CHAVE_TEXTO) || '';
+    }
+
+    function salvarPreferencias() {
+      try {
+        localStorage.setItem(CHAVE_PREFS, JSON.stringify({
+          velocidade: Number(controles.velocidade.campo.value),
+          tom: Number(controles.tom.campo.value),
+          volume: Number(controles.volume.campo.value),
+          apenasPortugues: apenasPortugues,
+          vozURI: seletorVoz.value
+        }));
+      } catch (e) { /* modo privado pode bloquear */ }
+    }
+
+    /* ---------- Medidas ---------- */
+
+    function contarPalavras(texto) {
+      var limpo = texto.trim();
+      return limpo ? limpo.split(/\s+/).length : 0;
+    }
+
+    function formatarDuracao(segundos) {
+      var m = Math.floor(segundos / 60), s = segundos % 60;
+      return m + ':' + String(s).padStart(2, '0');
+    }
+
+    function atualizarMedidas() {
+      var palavras = contarPalavras(editor.value);
+      var velocidade = Number(controles.velocidade.campo.value);
+      var segundos = palavras ? Math.round((palavras / (PALAVRAS_POR_MINUTO * velocidade)) * 60) : 0;
+      medidas.textContent = palavras + (palavras === 1 ? ' palavra · ' : ' palavras · ') + formatarDuracao(segundos);
+      btnTocar.disabled = !suportado || !editor.value.trim() || vozes.length === 0;
+    }
+
+    /* ---------- Divisão em blocos ---------- */
+
+    function dividirEmBlocos(texto) {
+      var lista = [], cursor = 0;
+      while (cursor < texto.length) {
+        if (texto.length - cursor <= TAMANHO_BLOCO) {
+          if (texto.slice(cursor).trim()) lista.push({ texto: texto.slice(cursor), inicio: cursor });
+          break;
+        }
+        var janela = texto.slice(cursor, cursor + TAMANHO_BLOCO);
+        var corte = Math.max(janela.lastIndexOf('. '), janela.lastIndexOf('! '), janela.lastIndexOf('? '), janela.lastIndexOf('\n'));
+        if (corte < TAMANHO_BLOCO * 0.4) corte = janela.lastIndexOf('; ');
+        if (corte < TAMANHO_BLOCO * 0.4) corte = janela.lastIndexOf(', ');
+        if (corte < TAMANHO_BLOCO * 0.4) corte = janela.lastIndexOf(' ');
+        if (corte <= 0) corte = TAMANHO_BLOCO - 1;
+        var fim = cursor + corte + 1;
+        if (texto.slice(cursor, fim).trim()) lista.push({ texto: texto.slice(cursor, fim), inicio: cursor });
+        cursor = fim;
+      }
+      return lista;
+    }
+
+    /* ---------- Vozes ---------- */
+
+    function vozesVisiveis() {
+      var pt = vozes.filter(function (v) { return v.lang.toLowerCase().indexOf('pt') === 0; });
+      return apenasPortugues && pt.length ? pt : vozes;
+    }
+
+    function preencherVozes() {
+      var lista = vozesVisiveis();
+      seletorVoz.innerHTML = '';
+
+      if (!lista.length) {
+        var vazio = document.createElement('option');
+        vazio.textContent = 'Nenhuma voz encontrada neste aparelho';
+        seletorVoz.appendChild(vazio);
+        seletorVoz.disabled = true;
+        return;
+      }
+
+      seletorVoz.disabled = falando;
+      lista.forEach(function (voz) {
+        var opcao = document.createElement('option');
+        opcao.value = voz.voiceURI;
+        opcao.textContent = voz.name + ' (' + voz.lang + ')';
+        seletorVoz.appendChild(opcao);
+      });
+
+      var existe = lista.some(function (v) { return v.voiceURI === vozURI; });
+      seletorVoz.value = existe ? vozURI : lista[0].voiceURI;
+      vozURI = seletorVoz.value;
+    }
+
+    function vozEscolhida() {
+      for (var i = 0; i < vozes.length; i++) {
+        if (vozes[i].voiceURI === seletorVoz.value) return vozes[i];
+      }
+      return null;
+    }
+
+    function carregarVozes() {
+      var lista = window.speechSynthesis.getVoices();
+      if (!lista.length) return false;
+
+      // Português do Brasil primeiro, depois outros portugueses, depois o resto.
+      var prioridade = function (voz) {
+        var idioma = voz.lang.toLowerCase().replace('_', '-');
+        if (idioma.indexOf('pt-br') === 0) return 0;
+        if (idioma.indexOf('pt') === 0) return 1;
+        return 2;
+      };
+
+      vozes = lista.slice().sort(function (a, b) {
+        return prioridade(a) - prioridade(b) || a.name.localeCompare(b.name, 'pt-BR');
+      });
+
+      preencherVozes();
+      atualizarMedidas();
+      return true;
+    }
+
+    /* ---------- Avisos ---------- */
+
+    function mostrarAviso(mensagem) {
+      avisoTexto.textContent = mensagem;
+      aviso.classList.add('visivel');
+    }
+
+    function limparAviso() {
+      aviso.classList.remove('visivel');
+    }
+
+    /* ---------- Narração ---------- */
+
+    function pintarProgresso(inicio, fim) {
+      var texto = editor.value;
+      lido.textContent = texto.slice(0, inicio);
+      atual.textContent = texto.slice(inicio, fim);
+      resto.textContent = texto.slice(fim);
+      progresso.style.width = Math.min(100, (fim / texto.length) * 100) + '%';
+
+      var caixa = leitura.getBoundingClientRect();
+      var marca = atual.getBoundingClientRect();
+      if (marca.height && (marca.top < caixa.top + 24 || marca.bottom > caixa.bottom - 24)) {
+        leitura.scrollTop += marca.top - caixa.top - caixa.height / 2;
+      }
+    }
+
+    function falarBloco() {
+      var bloco = blocos[indiceBloco];
+
+      if (!bloco) {
+        parar();
+        return;
+      }
+
+      var fala = new SpeechSynthesisUtterance(bloco.texto);
+      var voz = vozEscolhida();
+      fala.rate = Number(controles.velocidade.campo.value);
+      fala.pitch = Number(controles.tom.campo.value);
+      fala.volume = Number(controles.volume.campo.value);
+      fala.lang = voz ? voz.lang : 'pt-BR';
+      if (voz) { try { fala.voice = voz; } catch (e) { /* referência antiga */ } }
+
+      fala.onboundary = function (evento) {
+        if (evento.name && evento.name !== 'word') return;
+        var tamanho = evento.charLength;
+        if (!tamanho) {
+          var sobra = bloco.texto.slice(evento.charIndex);
+          var espaco = sobra.search(/\s/);
+          tamanho = espaco === -1 ? sobra.length : espaco;
+        }
+        pintarProgresso(bloco.inicio + evento.charIndex, bloco.inicio + evento.charIndex + tamanho);
+      };
+
+      fala.onend = function () {
+        if (!falando) return;
+        indiceBloco += 1;
+        falarBloco();
+      };
+
+      fala.onerror = function (evento) {
+        if (evento.error === 'interrupted' || evento.error === 'canceled') return;
+        mostrarAviso(MENSAGENS[evento.error] || ('Falha na narração (' + evento.error + ').'));
+        parar();
+      };
+
+      window.speechSynthesis.speak(fala);
+    }
+
+    function tocar() {
+      if (!suportado) {
+        mostrarAviso('Este navegador não suporta narração. Use Chrome, Edge ou Safari atualizados.');
+        return;
+      }
+      if (!editor.value.trim()) return;
+
+      limparAviso();
+      window.speechSynthesis.cancel();
+
+      blocos = dividirEmBlocos(editor.value);
+      indiceBloco = 0;
+      falando = true;
+      pausado = false;
+
+      app.classList.add('narrando');
+      document.body.classList.add('narrando');
+      btnTocar.textContent = 'Pausar';
+      btnParar.classList.remove('oculto');
+      seletorVoz.disabled = true;
+      pintarProgresso(0, 0);
+
+      // O Chrome suspende a fila de fala depois de alguns segundos.
+      manterVivo = setInterval(function () {
+        if (falando && !pausado) window.speechSynthesis.resume();
+      }, 8000);
+
+      falarBloco();
+    }
+
+    function alternarPausa() {
+      if (pausado) {
+        pausado = false;
+        window.speechSynthesis.resume();
+        btnTocar.textContent = 'Pausar';
+        document.body.classList.remove('pausado');
+      } else {
+        pausado = true;
+        window.speechSynthesis.pause();
+        btnTocar.textContent = 'Retomar';
+        document.body.classList.add('pausado');
+      }
+    }
+
+    function parar() {
+      falando = false;
+      pausado = false;
+      blocos = [];
+      indiceBloco = 0;
+      if (manterVivo) { clearInterval(manterVivo); manterVivo = null; }
+      if (suportado) window.speechSynthesis.cancel();
+
+      app.classList.remove('narrando');
+      document.body.classList.remove('narrando', 'pausado');
+      btnTocar.textContent = 'Narrar texto';
+      btnParar.classList.add('oculto');
+      seletorVoz.disabled = vozes.length === 0;
+      progresso.style.width = '0%';
+      lido.textContent = atual.textContent = resto.textContent = '';
+    }
+
+    /* ---------- Eventos ---------- */
+
+    btnTocar.addEventListener('click', function () {
+      if (falando) alternarPausa(); else tocar();
+    });
+
+    btnParar.addEventListener('click', parar);
+
+    editor.addEventListener('input', function () {
+      atualizarMedidas();
+      try { localStorage.setItem(CHAVE_TEXTO, editor.value); } catch (e) { /* modo privado */ }
+    });
+
+    editor.addEventListener('keydown', function (evento) {
+      if ((evento.metaKey || evento.ctrlKey) && evento.key === 'Enter') tocar();
+    });
+
+    btnArquivo.addEventListener('click', function () { arquivo.click(); });
+
+    arquivo.addEventListener('change', function () {
+      var escolhido = arquivo.files && arquivo.files[0];
+      if (!escolhido) return;
+      var leitor = new FileReader();
+      leitor.onload = function () {
+        parar();
+        editor.value = String(leitor.result);
+        editor.dispatchEvent(new Event('input'));
+        limparAviso();
+      };
+      leitor.onerror = function () { mostrarAviso('Não foi possível ler o arquivo escolhido.'); };
+      leitor.readAsText(escolhido);
+      arquivo.value = '';
+    });
+
+    btnLimpar.addEventListener('click', function () {
+      parar();
+      editor.value = '';
+      editor.dispatchEvent(new Event('input'));
+      limparAviso();
+      editor.focus();
+    });
+
+    btnIdiomas.addEventListener('click', function () {
+      apenasPortugues = !apenasPortugues;
+      btnIdiomas.textContent = apenasPortugues ? 'Ver todos os idiomas' : 'Somente português';
+      preencherVozes();
+      salvarPreferencias();
+    });
+
+    seletorVoz.addEventListener('change', function () {
+      vozURI = seletorVoz.value;
+      salvarPreferencias();
+    });
+
+    Object.keys(controles).forEach(function (nome) {
+      var controle = controles[nome];
+      controle.campo.addEventListener('input', function () {
+        controle.saida.textContent = controle.formatar(Number(controle.campo.value));
+        if (nome === 'velocidade') atualizarMedidas();
+        salvarPreferencias();
+      });
+    });
+
+    btnPadrao.addEventListener('click', function () {
+      Object.keys(controles).forEach(function (nome) {
+        controles[nome].campo.value = controles[nome].padrao;
+        controles[nome].campo.dispatchEvent(new Event('input'));
+      });
+    });
+
+    // Parar a fala ao sair da página evita que o áudio continue em segundo plano.
+    window.addEventListener('pagehide', function () {
+      if (suportado) window.speechSynthesis.cancel();
+    });
+
+    /* ---------- Início ---------- */
+
+    carregarPreferencias();
+    btnIdiomas.textContent = apenasPortugues ? 'Ver todos os idiomas' : 'Somente português';
+    Object.keys(controles).forEach(function (nome) {
+      controles[nome].saida.textContent = controles[nome].formatar(Number(controles[nome].campo.value));
+    });
+    atualizarMedidas();
+
+    if (!suportado) {
+      mostrarAviso('Este navegador não suporta narração. Use Chrome, Edge ou Safari atualizados.');
+      btnTocar.disabled = true;
+    } else if (!carregarVozes()) {
+      // As vozes costumam chegar depois do carregamento da página.
+      window.speechSynthesis.onvoiceschanged = carregarVozes;
+      setTimeout(function () {
+        if (!carregarVozes()) {
+          mostrarAviso('Nenhuma voz encontrada neste aparelho. Instale vozes em português nas configurações do sistema.');
+        }
+      }, 2000);
+    }
+  })();
+</script>
