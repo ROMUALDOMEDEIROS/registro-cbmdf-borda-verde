@@ -14,3 +14,14 @@ root.render(
     <App />
   </React.StrictMode>
 );
+
+// Service worker: permite instalar o app na tela inicial e abri-lo offline.
+// Só em produção, para não atrapalhar o hot reload do Vite.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    // Caminho relativo para funcionar também quando publicado em subpasta.
+    navigator.serviceWorker.register('./sw.js').catch((erro) => {
+      console.warn('Service worker não registrado:', erro);
+    });
+  });
+}

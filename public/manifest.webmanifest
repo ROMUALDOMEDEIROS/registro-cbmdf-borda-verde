@@ -1,0 +1,48 @@
+{
+  "name": "Narrador CBMDF - Borda Verde",
+  "short_name": "Narrador",
+  "description": "Narrador de textos em voz alta e registro de presença da equipe de Cross Country do CBMDF.",
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "start_url": "./index.html#/narrador",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f6f2ee",
+  "theme_color": "#0b894a",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icones/icone-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icones/icone-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icones/icone-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Narrador de textos",
+      "short_name": "Narrador",
+      "url": "./index.html#/narrador",
+      "icons": [{ "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Registrar presenca",
+      "short_name": "Presenca",
+      "url": "./index.html#/",
+      "icons": [{ "src": "icones/icone-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

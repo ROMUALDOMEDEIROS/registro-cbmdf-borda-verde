@@ -38,3 +38,18 @@ responsivos. Arquivos: [`components/Narrador.tsx`](components/Narrador.tsx) e
 **Requisitos:** Chrome, Edge, Safari ou Android atualizados, com pelo menos uma
 voz instalada no sistema. Se nenhuma voz for encontrada, a tela avisa e o botão
 de narrar fica desabilitado.
+
+📖 **[Guia completo](GUIA-NARRADOR.md)** — como usar, publicar e instalar no celular.
+
+## Instalação como aplicativo (PWA)
+
+O app pode ser instalado na tela inicial do celular, abrir em tela cheia e
+funcionar offline. Isso exige que o site esteja publicado em HTTPS.
+
+- [`public/manifest.webmanifest`](public/manifest.webmanifest) — nome, ícones e
+  atalhos. Por padrão o ícone abre direto no narrador.
+- [`public/sw.js`](public/sw.js) — service worker que guarda a interface em
+  cache, lendo o `index.html` para descobrir os arquivos gerados pelo build.
+- [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — publica no
+  GitHub Pages a cada push na `main` (basta ativar **Settings → Pages →
+  Source: GitHub Actions**).

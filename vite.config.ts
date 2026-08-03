@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
+      // Caminhos relativos: o build funciona tanto na raiz de um domínio
+      // quanto em subpasta (ex.: usuario.github.io/nome-do-repositorio/).
+      base: './',
       server: {
         port: 3000,
         host: '0.0.0.0',
