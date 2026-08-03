@@ -39,12 +39,16 @@ O repositório já vem com a publicação automática configurada.
 
 ### GitHub Pages (já configurado, gratuito)
 
-1. Junte esta branch na `main` (via Pull Request ou merge direto).
-2. No GitHub, vá em **Settings → Pages**.
-3. Em **Source**, escolha **GitHub Actions** e salve.
-4. Pronto. A cada push na `main`, o workflow
-   [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) compila e publica.
-   Acompanhe na aba **Actions**.
+Não é preciso mexer em nada: a cada push na `main`, o workflow
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) compila o app e
+envia o resultado para a branch `gh-pages`, de onde o Pages serve o site.
+Acompanhe na aba **Actions**.
+
+O workflow publica por branch em vez de usar o artefato do Pages porque **criar**
+o site do Pages exige permissão de administração do repositório, que o GitHub
+nunca concede ao token do Actions. Já a publicação por branch precisa apenas de
+escrita no repositório — e a própria existência da branch `gh-pages` ativa o
+Pages. Por isso não é necessário passar por **Settings → Pages**.
 
 O endereço final será:
 

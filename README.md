@@ -50,6 +50,6 @@ funcionar offline. Isso exige que o site esteja publicado em HTTPS.
   atalhos. Por padrão o ícone abre direto no narrador.
 - [`public/sw.js`](public/sw.js) — service worker que guarda a interface em
   cache, lendo o `index.html` para descobrir os arquivos gerados pelo build.
-- [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — publica no
-  GitHub Pages a cada push na `main` (basta ativar **Settings → Pages →
-  Source: GitHub Actions**).
+- [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) — a cada push na
+  `main`, compila o app e envia o resultado para a branch `gh-pages`, de onde o
+  GitHub Pages serve o site. Não exige configuração manual.
