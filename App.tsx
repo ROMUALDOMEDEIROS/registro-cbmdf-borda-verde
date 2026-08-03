@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Link } from 'react-router-dom';
-import { ShieldCheck, UserCheck, LogOut, Menu, X } from 'lucide-react';
+import { ShieldCheck, UserCheck, LogOut, Menu, X, AudioLines } from 'lucide-react';
 import AttendanceForm from './components/AttendanceForm';
 import AdminDashboard from './components/AdminDashboard';
 import Login from './components/Login';
+import Narrador from './components/Narrador';
 import { PresenceRecord } from './types';
 
 const App: React.FC = () => {
@@ -49,6 +50,9 @@ const App: React.FC = () => {
                 <Link to="/" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
                   <UserCheck size={18} /> Atleta
                 </Link>
+                <Link to="/narrador" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
+                  <AudioLines size={18} /> Narrador
+                </Link>
                 {isAdmin ? (
                   <>
                     <Link to="/admin" className="text-gray-600 dark:text-gray-400 hover:text-primary transition-all flex items-center gap-2 font-bold text-xs uppercase tracking-widest">
@@ -88,6 +92,13 @@ const App: React.FC = () => {
                 >
                   <UserCheck size={20} className="text-primary" /> Registrar Presença
                 </Link>
+                <Link
+                  to="/narrador"
+                  className="flex items-center gap-3 text-gray-700 dark:text-gray-300 font-bold py-4 px-4 rounded-xl hover:bg-gray-50 dark:hover:bg-white/5 transition-colors uppercase tracking-widest text-xs"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <AudioLines size={20} className="text-primary" /> Narrador de Textos
+                </Link>
                 {isAdmin ? (
                   <>
                     <Link 
@@ -122,6 +133,7 @@ const App: React.FC = () => {
         <main className="flex-grow max-w-lg mx-auto w-full px-6 py-12 relative z-10">
           <Routes>
             <Route path="/" element={<AttendanceForm onRecordAdded={addRecord} />} />
+            <Route path="/narrador" element={<Narrador />} />
             <Route path="/login" element={<Login setIsAdmin={setIsAdmin} />} />
             <Route path="/admin" element={isAdmin ? <AdminDashboard records={records} /> : <Login setIsAdmin={setIsAdmin} />} />
           </Routes>
