@@ -6,6 +6,7 @@ export interface OpcoesNarracao {
   velocidade?: number; // 0.5 a 2.0
   tom?: number;        // 0.5 a 2.0
   volume?: number;     // 0.0 a 1.0
+  inicio?: number;     // caractere onde começar, para retomar um documento longo
 }
 
 export interface EventosNarracao {
@@ -27,7 +28,7 @@ const PALAVRAS_POR_MINUTO = 150;
 // e deixam pausar/parar muito mais responsivo.
 const TAMANHO_MAXIMO_BLOCO = 160;
 
-export const OPCOES_PADRAO: Required<Omit<OpcoesNarracao, 'voz'>> = {
+export const OPCOES_PADRAO: Required<Omit<OpcoesNarracao, 'voz' | 'inicio'>> = {
   velocidade: 1,
   tom: 1,
   volume: 1,
@@ -253,7 +254,11 @@ export class Narrador {
       return;
     }
 
-    const conteudo = texto.trim();
+    // Retomar de um ponto: recua até o começo da palavra para não cortá-la ao meio.
+    const inicio = Math.max(0, Math.min(opcoes.inicio ?? 0, texto.length));
+    const deslocamento = inicio > 0 ? texto.lastIndexOf(' ', inicio) + 1 : 0;
+
+    const conteudo = texto.slice(deslocamento).trim();
     if (!conteudo) {
       eventos.aoErro?.('Escreva ou carregue um texto antes de narrar.');
       return;
@@ -261,7 +266,10 @@ export class Narrador {
 
     this.parar();
 
-    this.blocos = dividirEmBlocos(texto);
+    this.blocos = dividirEmBlocos(texto.slice(deslocamento)).map((bloco) => ({
+      ...bloco,
+      inicio: bloco.inicio + deslocamento,
+    }));
     this.indiceBloco = 0;
     this.opcoes = opcoes;
     this.eventos = eventos;

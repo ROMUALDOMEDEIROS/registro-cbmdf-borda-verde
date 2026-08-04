@@ -394,6 +394,12 @@
     line-height: 1.45;
   }
 
+  /* Andamento não é problema: o mesmo bloco, em verde, sem ar de alerta. */
+  .aviso.andamento {
+    border-color: var(--verde);
+    background: var(--verde-tenue);
+  }
+
   .aviso.visivel { display: flex; }
   .aviso strong { color: var(--laranja); }
 
@@ -500,7 +506,7 @@
     <div class="marca" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
     <div class="titulo">
       <h1>Narrador</h1>
-      <p class="subtitulo">Texto em voz alta</p>
+      <p class="subtitulo">Texto e PDF em voz alta</p>
     </div>
   </div>
 
@@ -514,13 +520,13 @@
       <span class="medidas" id="medidas">0 palavras · 0:00</span>
     </div>
 
-    <textarea id="editor" placeholder="Digite, cole o texto aqui ou carregue um arquivo."></textarea>
+    <textarea id="editor" placeholder="Digite, cole o texto aqui ou carregue um PDF ou arquivo de texto."></textarea>
     <div id="leitura" aria-live="off"><span id="lido"></span><mark id="atual"></mark><span id="resto"></span></div>
 
     <div class="acoes">
       <button type="button" class="fantasma" id="btn-arquivo">Carregar arquivo</button>
       <button type="button" class="fantasma" id="btn-limpar">Limpar</button>
-      <input type="file" id="arquivo" accept=".txt,.md,.csv,text/plain" class="oculto">
+      <input type="file" id="arquivo" accept=".txt,.md,.csv,.pdf,text/plain,application/pdf" class="oculto">
     </div>
   </section>
 
@@ -705,6 +711,124 @@
 
     /* ---------- Vozes ---------- */
 
+    // --- Leitura de PDF -----------------------------------------------------
+    // Este arquivo é único e funciona offline; o pdf.js pesa mais de 1 MB e por
+    // isso só é buscado quando um PDF é de fato escolhido. Sem internet nesse
+    // momento, o resto do narrador continua funcionando normalmente.
+    var PDF_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/';
+    var promessaPdfJs = null;
+
+    function ehPdf(arquivo) {
+      return arquivo.type === 'application/pdf' || /\.pdf$/i.test(arquivo.name);
+    }
+
+    function carregarPdfJs() {
+      promessaPdfJs = promessaPdfJs || import(PDF_CDN + 'pdf.min.mjs').then(function (lib) {
+        lib.GlobalWorkerOptions.workerSrc = PDF_CDN + 'pdf.worker.min.mjs';
+        return lib;
+      }, function () {
+        promessaPdfJs = null;
+        throw new Error('A leitura de PDF precisa de internet na primeira vez. Conecte-se e tente de novo.');
+      });
+
+      return promessaPdfJs;
+    }
+
+    function espacamentoTipico(linhas) {
+      var distancias = [];
+      for (var i = 1; i < linhas.length; i++) {
+        var d = linhas[i - 1].base - linhas[i].base;
+        if (d > 0) distancias.push(d);
+      }
+      if (!distancias.length) return 0;
+      distancias.sort(function (a, b) { return a - b; });
+      return distancias[Math.floor(distancias.length / 2)];
+    }
+
+    // Remonta as linhas soltas do pdf.js em parágrafos: junta a palavra cortada
+    // por hífen no fim da linha e usa o espaço vertical extra para separar
+    // título de corpo de texto.
+    function juntarLinhas(linhas) {
+      var salto = espacamentoTipico(linhas) * 1.5;
+      var texto = '';
+      var anterior = null;
+
+      linhas.forEach(function (item) {
+        var linha = item.texto.trim();
+        var distante = anterior !== null && salto > 0 && anterior - item.base > salto;
+        anterior = item.base;
+
+        if (!linha) {
+          if (texto && texto.slice(-2) !== '\n\n') texto += '\n\n';
+          return;
+        }
+
+        if (distante && texto && texto.slice(-2) !== '\n\n') texto += '\n\n';
+
+        if (!texto || texto.slice(-2) === '\n\n') texto += linha;
+        else if (/[a-zà-ÿ0-9]-$/.test(texto)) texto = texto.slice(0, -1) + linha;
+        else texto += ' ' + linha;
+
+        if (/[.!?:;]["')\]]?$/.test(linha)) texto += '\n\n';
+      });
+
+      return texto.trim();
+    }
+
+    function limparTextoDePdf(texto) {
+      return texto
+        .replace(/\r\n?/g, '\n')
+        .replace(/­/g, '')
+        .replace(/[ \t ]+/g, ' ')
+        .replace(/\n[ \t]+/g, '\n')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+    }
+
+    function extrairTextoDePdf(arquivo, aoProgredir) {
+      return carregarPdfJs().then(function (pdfjsLib) {
+        return arquivo.arrayBuffer().then(function (dados) {
+          return pdfjsLib.getDocument({ data: dados, useSystemFonts: true }).promise;
+        }).then(function (documento) {
+          var paginas = [];
+
+          function proxima(numero) {
+            if (numero > documento.numPages) {
+              return documento.destroy().then(function () {
+                return limparTextoDePdf(paginas.filter(Boolean).join('\n\n'));
+              });
+            }
+
+            return documento.getPage(numero).then(function (pagina) {
+              return pagina.getTextContent().then(function (conteudo) {
+                var linhas = [];
+                var atual = '';
+                var base = 0;
+
+                conteudo.items.forEach(function (item) {
+                  if (typeof item.str !== 'string') return;
+                  if (!atual) base = item.transform[5];
+                  atual += item.str;
+                  if (item.hasEOL) {
+                    linhas.push({ texto: atual, base: base });
+                    atual = '';
+                  }
+                });
+                if (atual) linhas.push({ texto: atual, base: base });
+
+                pagina.cleanup();
+                paginas.push(juntarLinhas(linhas));
+                if (aoProgredir) aoProgredir(numero, documento.numPages);
+                return proxima(numero + 1);
+              });
+            });
+          }
+
+          return proxima(1);
+        });
+      });
+    }
+
     function semAcento(texto) {
       return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     }
@@ -868,13 +992,14 @@
 
     /* ---------- Avisos ---------- */
 
-    function mostrarAviso(mensagem) {
+    function mostrarAviso(mensagem, andamento) {
       avisoTexto.textContent = mensagem;
+      aviso.classList.toggle('andamento', !!andamento);
       aviso.classList.add('visivel');
     }
 
     function limparAviso() {
-      aviso.classList.remove('visivel');
+      aviso.classList.remove('visivel', 'andamento');
     }
 
     /* ---------- Narração ---------- */
@@ -1016,19 +1141,38 @@
 
     btnArquivo.addEventListener('click', function () { arquivo.click(); });
 
+    function aplicarTexto(conteudo) {
+      parar();
+      editor.value = conteudo;
+      editor.dispatchEvent(new Event('input'));
+      limparAviso();
+    }
+
     arquivo.addEventListener('change', function () {
       var escolhido = arquivo.files && arquivo.files[0];
+      arquivo.value = '';
       if (!escolhido) return;
+
+      if (ehPdf(escolhido)) {
+        mostrarAviso('Abrindo o PDF…', true);
+        extrairTextoDePdf(escolhido, function (pagina, total) {
+          mostrarAviso('Extraindo texto — página ' + pagina + ' de ' + total + '.', true);
+        }).then(function (texto) {
+          if (!texto.trim()) {
+            mostrarAviso('Este PDF não tem texto selecionável — provavelmente é um documento digitalizado.');
+            return;
+          }
+          aplicarTexto(texto);
+        }, function (falha) {
+          mostrarAviso(String(falha && falha.message || falha));
+        });
+        return;
+      }
+
       var leitor = new FileReader();
-      leitor.onload = function () {
-        parar();
-        editor.value = String(leitor.result);
-        editor.dispatchEvent(new Event('input'));
-        limparAviso();
-      };
+      leitor.onload = function () { aplicarTexto(String(leitor.result)); };
       leitor.onerror = function () { mostrarAviso('Não foi possível ler o arquivo escolhido.'); };
       leitor.readAsText(escolhido);
-      arquivo.value = '';
     });
 
     btnLimpar.addEventListener('click', function () {

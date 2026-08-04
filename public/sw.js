@@ -1,7 +1,7 @@
 // Service worker do app. Mantém a interface disponível offline — a narração
 // em si já não depende de rede, pois usa as vozes instaladas no dispositivo.
 
-const VERSAO = 'cbmdf-narrador-v1';
+const VERSAO = 'cbmdf-narrador-v2';
 
 // Caminhos relativos ao escopo do service worker, para funcionar tanto na raiz
 // de um domínio quanto em subpasta (ex.: GitHub Pages).

@@ -25,17 +25,27 @@ Lê qualquer texto em voz alta usando a Web Speech API do navegador. Não usa ch
 de API, não envia o texto para nenhum servidor e funciona offline — as vozes são
 as instaladas no próprio dispositivo.
 
-- Digite, cole ou carregue um arquivo `.txt` / `.md` / `.csv`
+- Digite, cole ou carregue um **PDF** ou um arquivo `.txt` / `.md` / `.csv`
 - Escolha entre uma voz **feminina** e uma **masculina** em português do Brasil,
   selecionadas automaticamente entre as mais naturais do aparelho — a lista
   completa rotula cada voz por gênero e por qualidade (natural, comum, robótica)
 - Ajuste velocidade, tom e volume — as preferências e o último texto ficam salvos
 - Pausar, retomar e parar, com destaque da palavra sendo lida e barra de progresso
+- **Histórico** dos textos e PDFs já abertos, cada um guardando onde a leitura
+  parou, para retomar um documento longo do ponto certo
 
 O texto é dividido em blocos curtos antes de ser enviado ao sintetizador. Isso
 contorna o corte que o Chrome aplica em falas longas e deixa os controles
-responsivos. Arquivos: [`components/Narrador.tsx`](components/Narrador.tsx) e
-[`services/narracaoService.ts`](services/narracaoService.ts).
+responsivos. Arquivos: [`components/Narrador.tsx`](components/Narrador.tsx),
+[`services/narracaoService.ts`](services/narracaoService.ts),
+[`services/pdfService.ts`](services/pdfService.ts) e
+[`services/historicoService.ts`](services/historicoService.ts).
+
+O PDF é lido no próprio navegador com o `pdf.js`, que só é baixado quando um PDF
+é de fato aberto. As linhas soltas que o extrator devolve são remontadas em
+parágrafos — palavras cortadas por hífen voltam a ser uma só e o espaço vertical
+entre as linhas separa título de corpo de texto, para que o sintetizador não leia
+tudo emendado.
 
 **Requisitos:** Chrome, Edge, Safari ou Android atualizados, com pelo menos uma
 voz instalada no sistema. Se nenhuma voz for encontrada, a tela avisa e o botão

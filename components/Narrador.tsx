@@ -14,6 +14,9 @@ import {
   AlertTriangle,
   FileText,
   Sparkles,
+  History,
+  X,
+  FileType2,
 } from 'lucide-react';
 import {
   Narrador as MotorNarracao,
@@ -29,10 +32,20 @@ import {
   qualidadeDaVoz,
   type Genero,
 } from '../services/narracaoService';
+import { ehPdf, extrairTextoDePdf } from '../services/pdfService';
+import {
+  formatarData,
+  lerHistorico,
+  limpar as limparHistorico,
+  marcarPosicao,
+  registrar,
+  remover,
+  type ItemHistorico,
+} from '../services/historicoService';
 
 const CHAVE_TEXTO = 'narrador_texto';
 const CHAVE_PREFERENCIAS = 'narrador_preferencias';
-const EXTENSOES_ACEITAS = '.txt,.md,.csv,text/plain';
+const EXTENSOES_ACEITAS = '.txt,.md,.csv,.pdf,text/plain,application/pdf';
 
 interface Preferencias {
   vozURI: string;
@@ -53,6 +66,13 @@ const DESCRICAO_QUALIDADE: Record<ReturnType<typeof qualidadeDaVoz>, string> = {
   padrao: 'comum',
   robotica: 'robótica',
 };
+
+// Título de um texto colado: a primeira linha com conteúdo, encurtada.
+function tituloDoTexto(texto: string): string {
+  const linha = texto.split('\n').find((l) => l.trim()) || '';
+  const limpo = linha.trim();
+  return limpo.length > 60 ? `${limpo.slice(0, 60)}…` : limpo;
+}
 
 const PREFERENCIAS_PADRAO: Preferencias = {
   vozURI: '',
@@ -76,8 +96,23 @@ const Narrador: React.FC = () => {
   const [posicao, setPosicao] = useState<{ inicio: number; fim: number } | null>(null);
   const [erro, setErro] = useState('');
 
+  // Ao reabrir o app, o texto restaurado é reconectado ao seu documento no
+  // histórico — é isso que faz a retomada sobreviver ao fechar o navegador.
+  const [inicial] = useState(() => {
+    const lista = lerHistorico();
+    const documento = lista.find((item) => item.texto === texto) ?? null;
+    return { lista, id: documento?.id ?? null, posicao: documento?.posicao ?? 0 };
+  });
+
+  const [historico, setHistorico] = useState<ItemHistorico[]>(inicial.lista);
+  const [documentoAtual, setDocumentoAtual] = useState<string | null>(inicial.id);
+  const [retomarDe, setRetomarDe] = useState(inicial.posicao);
+  const [mostrarHistorico, setMostrarHistorico] = useState(false);
+  const [extraindo, setExtraindo] = useState<{ pagina: number; total: number } | null>(null);
+
   const motor = useRef<MotorNarracao | null>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
+  const ultimaPosicao = useRef(0);
   const suportado = narracaoDisponivel();
 
   if (motor.current === null) {
@@ -149,9 +184,25 @@ const Narrador: React.FC = () => {
     setPreferencias((atual) => ({ ...atual, [campo]: valor }));
   };
 
+  // Guarda onde a leitura parou, para que o documento possa ser retomado depois.
+  const salvarPosicao = (valor: number, documento = documentoAtual) => {
+    setRetomarDe(valor);
+    if (documento) setHistorico((atual) => marcarPosicao(atual, documento, valor));
+  };
+
   const iniciar = () => {
     setErro('');
     setPosicao(null);
+    ultimaPosicao.current = retomarDe;
+
+    // Texto digitado ou colado só entra no histórico quando é de fato narrado.
+    let documento = documentoAtual;
+    if (!documento) {
+      const atualizado = registrar(historico, { titulo: tituloDoTexto(texto), texto, origem: 'texto' });
+      setHistorico(atualizado);
+      documento = atualizado[0]?.texto === texto ? atualizado[0].id : null;
+      setDocumentoAtual(documento);
+    }
 
     motor.current?.falar(
       texto,
@@ -160,17 +211,23 @@ const Narrador: React.FC = () => {
         velocidade: preferencias.velocidade,
         tom: preferencias.tom,
         volume: preferencias.volume,
+        inicio: retomarDe,
       },
       {
         aoIniciar: () => {
           setNarrando(true);
           setPausado(false);
         },
-        aoProgredir: (indice, tamanho) => setPosicao({ inicio: indice, fim: indice + tamanho }),
+        aoProgredir: (indice, tamanho) => {
+          ultimaPosicao.current = indice;
+          setPosicao({ inicio: indice, fim: indice + tamanho });
+        },
         aoTerminar: () => {
           setNarrando(false);
           setPausado(false);
           setPosicao(null);
+          ultimaPosicao.current = 0;
+          salvarPosicao(0, documento);
         },
         aoErro: (mensagem) => {
           setErro(mensagem);
@@ -189,35 +246,77 @@ const Narrador: React.FC = () => {
     } else {
       motor.current?.pausar();
       setPausado(true);
+      salvarPosicao(ultimaPosicao.current);
     }
   };
 
   const parar = () => {
+    const parou = narrando;
     motor.current?.parar();
     setNarrando(false);
     setPausado(false);
     setPosicao(null);
+    if (parou) salvarPosicao(ultimaPosicao.current);
   };
 
   const limpar = () => {
     parar();
     setTexto('');
     setErro('');
+    setDocumentoAtual(null);
+    setRetomarDe(0);
+  };
+
+  // Substitui o texto em edição sem apagar o que já estava no histórico.
+  const abrir = (conteudo: string, documento: string | null, posicaoInicial: number) => {
+    motor.current?.parar();
+    setNarrando(false);
+    setPausado(false);
+    setPosicao(null);
+    setTexto(conteudo);
+    setDocumentoAtual(documento);
+    setRetomarDe(posicaoInicial);
+    ultimaPosicao.current = posicaoInicial;
+    setErro('');
   };
 
   const carregarArquivo = async (evento: React.ChangeEvent<HTMLInputElement>) => {
     const arquivo = evento.target.files?.[0];
+    evento.target.value = '';
     if (!arquivo) return;
 
     try {
-      const conteudo = await arquivo.text();
-      parar();
-      setTexto(conteudo);
-      setErro('');
+      let conteudo: string;
+      let titulo: string;
+      let origem: 'texto' | 'pdf';
+
+      if (ehPdf(arquivo)) {
+        setExtraindo({ pagina: 0, total: 0 });
+        const extraido = await extrairTextoDePdf(arquivo, {
+          aoProgredir: (pagina, total) => setExtraindo({ pagina, total }),
+        });
+        if (!extraido.texto.trim()) {
+          setErro(
+            'Este PDF não tem texto selecionável — provavelmente é um documento digitalizado. Seria preciso passá-lo por um programa de OCR antes de narrar.',
+          );
+          return;
+        }
+        conteudo = extraido.texto;
+        titulo = extraido.titulo;
+        origem = 'pdf';
+      } else {
+        conteudo = await arquivo.text();
+        titulo = arquivo.name.replace(/\.[^.]+$/, '');
+        origem = 'texto';
+      }
+
+      const atualizado = registrar(historico, { titulo, texto: conteudo, origem });
+      setHistorico(atualizado);
+      abrir(conteudo, atualizado[0]?.texto === conteudo ? atualizado[0].id : null, 0);
     } catch {
       setErro('Não foi possível ler o arquivo selecionado.');
     } finally {
-      evento.target.value = '';
+      setExtraindo(null);
     }
   };
 
@@ -268,7 +367,7 @@ const Narrador: React.FC = () => {
             <AudioLines size={40} />
           </div>
           <h2 className="text-3xl font-black italic tracking-tighter uppercase transform -skew-x-6">Narrador</h2>
-          <p className="text-white/70 text-xs font-bold uppercase tracking-widest mt-2">Texto em Voz Alta</p>
+          <p className="text-white/70 text-xs font-bold uppercase tracking-widest mt-2">Texto e PDF em Voz Alta</p>
         </div>
 
         <div className="p-10 space-y-8">
@@ -300,10 +399,15 @@ const Narrador: React.FC = () => {
             ) : (
               <textarea
                 value={texto}
-                onChange={(e) => setTexto(e.target.value)}
+                onChange={(e) => {
+                  setTexto(e.target.value);
+                  // Texto editado deixa de ser o documento do histórico.
+                  setDocumentoAtual(null);
+                  setRetomarDe(0);
+                }}
                 rows={9}
                 className="w-full px-4 py-4 rounded-2xl border-2 border-gray-100 dark:border-white/10 dark:bg-background-dark/50 focus:border-primary focus:ring-0 outline-none transition font-medium leading-relaxed resize-y"
-                placeholder="Cole aqui o texto, digite ou carregue um arquivo .txt..."
+                placeholder="Cole aqui o texto, digite ou carregue um PDF ou arquivo .txt..."
               />
             )}
 
@@ -317,8 +421,25 @@ const Narrador: React.FC = () => {
             )}
           </div>
 
+          {/* Retomada: só aparece quando há leitura interrompida no meio do texto */}
+          {!narrando && retomarDe > 0 && retomarDe < texto.length && (
+            <div className="flex items-center justify-between gap-3 px-5 py-4 rounded-2xl bg-primary/5 border-2 border-primary/20">
+              <span className="text-[11px] font-bold text-gray-600 dark:text-gray-300">
+                Leitura parou em {Math.round((retomarDe / texto.length) * 100)}% do texto.
+              </span>
+              <button
+                type="button"
+                onClick={() => salvarPosicao(0)}
+                className="shrink-0 text-[10px] font-black uppercase tracking-[0.2em] text-primary hover:text-primary-dark transition-colors"
+              >
+                Começar do início
+              </button>
+            </div>
+          )}
+
           {/* Ações do texto */}
-          <div className="flex gap-3">
+          {/* Empilha em duas linhas quando a tela é estreita demais para os três */}
+          <div className="flex flex-wrap gap-3 [&>button]:flex-1 [&>button]:min-w-[7.5rem]">
             <input
               ref={arquivoRef}
               type="file"
@@ -329,19 +450,124 @@ const Narrador: React.FC = () => {
             <button
               type="button"
               onClick={() => arquivoRef.current?.click()}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-100 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all font-black uppercase tracking-[0.2em] text-[10px]"
+              disabled={!!extraindo || narrando}
+              className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-100 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary transition-all font-black uppercase tracking-[0.2em] text-[10px] disabled:opacity-40"
             >
-              <Upload size={16} /> Carregar arquivo
+              <Upload size={16} /> {extraindo ? 'Lendo PDF' : 'Arquivo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarHistorico((atual) => !atual)}
+              className={`flex items-center justify-center gap-2 py-3 rounded-2xl border-2 transition-all font-black uppercase tracking-[0.2em] text-[10px] ${
+                mostrarHistorico
+                  ? 'border-primary text-primary bg-primary/5'
+                  : 'border-gray-100 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-primary hover:text-primary'
+              }`}
+            >
+              <History size={16} /> Histórico
+              {historico.length > 0 && (
+                <span className="tabular-nums opacity-60">{historico.length}</span>
+              )}
             </button>
             <button
               type="button"
               onClick={limpar}
               disabled={!texto}
-              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-100 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-accent hover:text-accent transition-all font-black uppercase tracking-[0.2em] text-[10px] disabled:opacity-40 disabled:hover:border-gray-100 disabled:hover:text-gray-600"
+              className="flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-gray-100 dark:border-white/10 text-gray-600 dark:text-gray-300 hover:border-accent hover:text-accent transition-all font-black uppercase tracking-[0.2em] text-[10px] disabled:opacity-40 disabled:hover:border-gray-100 disabled:hover:text-gray-600"
             >
               <Trash2 size={16} /> Limpar
             </button>
           </div>
+
+          {extraindo && (
+            <div className="space-y-2 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-background-dark/40 border border-gray-100 dark:border-white/5">
+              <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
+                {extraindo.total > 0
+                  ? `Extraindo texto — página ${extraindo.pagina} de ${extraindo.total}`
+                  : 'Abrindo o PDF…'}
+              </span>
+              <div className="h-1.5 w-full bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-200"
+                  style={{
+                    width: extraindo.total > 0 ? `${(extraindo.pagina / extraindo.total) * 100}%` : '10%',
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {mostrarHistorico && (
+            <div className="rounded-3xl bg-gray-50 dark:bg-background-dark/40 border border-gray-100 dark:border-white/5 overflow-hidden">
+              <div className="flex items-center justify-between px-6 py-4">
+                <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em]">
+                  Textos e PDFs abertos
+                </span>
+                {historico.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHistorico(limparHistorico());
+                      setDocumentoAtual(null);
+                    }}
+                    className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 hover:text-accent transition-colors"
+                  >
+                    Apagar tudo
+                  </button>
+                )}
+              </div>
+
+              {historico.length === 0 ? (
+                <p className="px-6 pb-6 text-[11px] font-medium text-gray-500 dark:text-gray-400 leading-relaxed">
+                  Ainda não há nada aqui. Os textos narrados e os PDFs carregados ficam guardados
+                  neste aparelho para você retomar depois de onde parou.
+                </p>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100 dark:divide-white/5">
+                  {historico.map((item) => (
+                    <li key={item.id} className="flex items-center gap-2 px-6 py-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          abrir(item.texto, item.id, item.posicao);
+                          setMostrarHistorico(false);
+                        }}
+                        disabled={narrando}
+                        className="flex-1 min-w-0 text-left group disabled:opacity-40"
+                      >
+                        <span className="flex items-center gap-2">
+                          {item.origem === 'pdf' ? (
+                            <FileType2 size={13} className="shrink-0 text-primary" />
+                          ) : (
+                            <FileText size={13} className="shrink-0 text-gray-400" />
+                          )}
+                          <span className="truncate text-xs font-bold group-hover:text-primary transition-colors">
+                            {item.titulo}
+                          </span>
+                        </span>
+                        <span className="block mt-0.5 text-[10px] font-bold uppercase tracking-[0.15em] text-gray-400 tabular-nums">
+                          {formatarData(item.criadoEm)} • {contarPalavras(item.texto)} palavras
+                          {item.posicao > 0 &&
+                            ` • parou em ${Math.round((item.posicao / item.texto.length) * 100)}%`}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setHistorico(remover(historico, item.id));
+                          if (documentoAtual === item.id) setDocumentoAtual(null);
+                        }}
+                        aria-label={`Remover ${item.titulo}`}
+                        className="shrink-0 p-2 rounded-xl text-gray-400 hover:text-accent hover:bg-accent/5 transition-colors"
+                      >
+                        <X size={14} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* Seleção de voz */}
           <div className="space-y-2">
@@ -469,7 +695,8 @@ const Narrador: React.FC = () => {
               disabled={!suportado || !texto.trim() || (vozesCarregadas && vozes.length === 0)}
               className="w-full bg-primary hover:bg-primary-dark text-white font-black py-5 rounded-2xl transition-all shadow-xl active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-[0.2em] text-xs disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Play size={20} /> Narrar texto
+              <Play size={20} />
+              {retomarDe > 0 && retomarDe < texto.length ? 'Retomar leitura' : 'Narrar texto'}
             </button>
           )}
 

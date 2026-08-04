@@ -8,8 +8,10 @@ Como usar, publicar na internet e instalar no celular como aplicativo.
 
 A tela fica em **`/#/narrador`** (link "Narrador" no menu do topo).
 
-1. **Coloque o texto**: digite, cole (Ctrl+V) ou toque em **Carregar arquivo**
-   para abrir um `.txt`, `.md` ou `.csv`.
+1. **Coloque o texto**: digite, cole (Ctrl+V) ou toque em **Arquivo** para abrir
+   um **PDF**, `.txt`, `.md` ou `.csv`. Ao abrir um PDF, uma barra mostra o
+   andamento página a página; o texto extraído aparece no editor e pode ser
+   corrigido antes da leitura.
 2. **Escolha a voz**: dois botões — **Feminina** e **Masculina** — já apontam
    para a melhor voz de cada gênero em português do Brasil instalada no
    aparelho. A estrela (✦) marca as vozes neurais, que soam bem menos
@@ -27,6 +29,20 @@ A tela fica em **`/#/narrador`** (link "Narrador" no menu do topo).
 
 O texto e os ajustes ficam salvos no aparelho — ao reabrir, está tudo lá.
 Nada é enviado para servidor nenhum: a voz vem do próprio dispositivo.
+
+### Histórico e retomada
+
+O botão **Histórico** lista os textos e PDFs já abertos, com data e número de
+palavras. Tocar em um deles traz o documento de volta para o editor.
+
+Sempre que a leitura é pausada ou parada, o ponto exato fica gravado. Ao voltar
+ao documento — mesmo depois de fechar o navegador — aparece o aviso *"Leitura
+parou em X% do texto"* e o botão passa a dizer **Retomar leitura**. Para ler
+desde o começo, use **Começar do início**. Isso é o que torna prático narrar um
+PDF de dezenas de páginas em várias sessões.
+
+Tudo isso fica só no aparelho. O botão **Apagar tudo** limpa a lista, e o **X**
+ao lado de cada item remove só aquele documento.
 
 ### Rodando no seu computador
 
@@ -142,6 +158,9 @@ voz feminina e uma masculina** para ter as duas opções no app.
 | Sem som no iPhone | Chave lateral no modo silencioso — o iOS silencia a leitura. |
 | Para sozinho ao bloquear a tela | Comportamento normal do celular: ele suspende a página. Mantenha a tela ligada. |
 | Voz "engasga" em texto longo | O texto já é dividido em blocos curtos para evitar isso; se persistir, escolha uma voz **local** em vez de uma voz de rede. |
+| "Este PDF não tem texto selecionável" | O arquivo é um documento digitalizado (imagem das páginas). É preciso passá-lo antes por um programa de OCR, que converte a imagem em texto. |
+| PDF sai com palavras emendadas ou fora de ordem | PDFs com colunas, tabelas ou muitos quadros confundem a extração. O texto fica no editor e pode ser corrigido à mão antes de narrar. |
+| PDF não abre na versão de arquivo único | O `narrador-standalone.html` busca o leitor de PDF na internet da primeira vez. Conecte-se uma vez e depois funciona offline. A versão publicada como app não tem essa limitação. |
 
 ### Limitação importante
 
