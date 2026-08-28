@@ -53,6 +53,26 @@ de narrar fica desabilitado.
 
 📖 **[Guia completo](GUIA-NARRADOR.md)** — como usar, publicar e instalar no celular.
 
+## Levando o código para o AI Studio
+
+O app roda tanto compilado pelo Vite quanto no preview do
+[AI Studio](https://ai.studio/apps), que **não usa bundler**: o navegador lê os
+arquivos direto e resolve as dependências pelo `<script type="importmap">` do
+[`index.html`](index.html). Duas regras vêm daí:
+
+1. **Toda importação por nome precisa estar no importmap.** Ao adicionar uma
+   biblioteca, inclua a entrada lá além do `package.json` — senão o app funciona
+   localmente e quebra no AI Studio.
+2. **Nada de sintaxe exclusiva do Vite sem plano B.** `import.meta.env` não
+   existe fora do Vite, por isso o código usa `import.meta.env?.CAMPO`; ler
+   direto derruba o app já na importação.
+
+O `pdf.js` é o único caso com dois caminhos. Compilado, o worker sai do próprio
+build e a leitura de PDF funciona offline. Sem bundler, o especificador com
+sufixo `?url` não resolve, o erro é capturado e o worker vem do mesmo CDN da
+biblioteca. Por isso o importmap aponta para o arquivo exato do `pdfjs-dist` e
+**não** traz a variante com barra: é justamente o que faz o plano B entrar.
+
 ## Instalação como aplicativo (PWA)
 
 O app pode ser instalado na tela inicial do celular, abrir em tela cheia e

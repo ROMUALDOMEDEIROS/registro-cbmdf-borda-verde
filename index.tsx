@@ -16,8 +16,9 @@ root.render(
 );
 
 // Service worker: permite instalar o app na tela inicial e abri-lo offline.
-// Só em produção, para não atrapalhar o hot reload do Vite.
-if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+// Só no site publicado — no hot reload do Vite atrapalharia, e no preview do
+// AI Studio (sem Vite) `import.meta.env` sequer existe, daí o `?.`.
+if (import.meta.env?.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     // Caminho relativo para funcionar também quando publicado em subpasta.
     navigator.serviceWorker.register('./sw.js').catch((erro) => {

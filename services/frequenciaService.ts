@@ -1,6 +1,9 @@
 import { PresenceRecord } from '../types';
 
-const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL;
+// O `?.` não é firula: sem o Vite (preview do AI Studio, que serve os módulos
+// direto ao navegador) `import.meta.env` não existe, e a leitura direta
+// derrubaria o app inteiro já na importação.
+const APPS_SCRIPT_URL = import.meta.env?.VITE_APPS_SCRIPT_URL;
 
 export interface TabelaFrequencia {
   data: string;

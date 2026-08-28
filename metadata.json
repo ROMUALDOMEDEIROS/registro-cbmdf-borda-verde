@@ -1,6 +1,6 @@
 {
-  "name": "Registro CBMDF - Borda Verde V2",
-  "description": "Sistema de registro de presença para a equipe de Cross Country do CBMDF com geofencing e validação de horário.",
+  "name": "Narrador de Texto e PDF - CBMDF Borda Verde",
+  "description": "Narrador que lê textos e PDFs em voz alta com as vozes do próprio aparelho, sem chave de API e funcionando offline, com escolha de voz feminina ou masculina em português, histórico e retomada da leitura. Inclui o registro de presença da equipe de Cross Country do CBMDF.",
   "requestFramePermissions": [
     "geolocation"
   ]

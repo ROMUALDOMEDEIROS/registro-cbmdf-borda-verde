@@ -1,6 +1,5 @@
-// Extração de texto de PDFs para narração. O pdf.js é carregado sob demanda
-// para não pesar no primeiro acesso, e o worker vem do próprio build — nada de
-// CDN, para que a leitura continue funcionando offline.
+// Extração de texto de PDFs para narração. O pdf.js é carregado sob demanda,
+// para não pesar no primeiro acesso.
 
 export interface TextoExtraido {
   titulo: string;
@@ -15,15 +14,27 @@ export interface OpcoesExtracao {
 
 type ModuloPdf = typeof import('pdfjs-dist');
 
+// Mesma versão do `pdfjs-dist` no package.json: worker e biblioteca precisam
+// casar. Só é usado quando não há build por trás (preview do AI Studio).
+const WORKER_CDN = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.worker.min.mjs';
+
+// Com Vite, o worker sai do próprio build e a leitura funciona offline. Sem
+// bundler, o especificador nem resolve e o navegador lança na hora — aí vale o
+// CDN, que o service worker guarda em cache no primeiro uso.
+async function urlDoWorker(): Promise<string> {
+  try {
+    return (await import('pdfjs-dist/build/pdf.worker.min.mjs?url')).default;
+  } catch {
+    return WORKER_CDN;
+  }
+}
+
 let moduloPdf: Promise<ModuloPdf> | null = null;
 
 function carregarPdfJs(): Promise<ModuloPdf> {
   moduloPdf ??= (async () => {
-    const [pdfjs, worker] = await Promise.all([
-      import('pdfjs-dist'),
-      import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
-    ]);
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+    const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), urlDoWorker()]);
+    pdfjs.GlobalWorkerOptions.workerSrc = worker;
     return pdfjs;
   })();
   return moduloPdf;

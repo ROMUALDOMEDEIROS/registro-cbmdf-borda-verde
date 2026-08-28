@@ -44,6 +44,13 @@
             },
         }
     </script>
+    <!--
+      Como o AI Studio resolve as dependências: sem bundler, o navegador lê este
+      mapa. Toda importação por nome usada no código precisa estar aqui.
+      O `pdfjs-dist` aponta para o arquivo exato de propósito, sem a variante com
+      barra ("pdfjs-dist/"): é o que faz o pedido do worker falhar cedo e cair no
+      CDN, em vez de o worker ser carregado como módulo na thread principal.
+    -->
     <script type="importmap">
     {
       "imports": {
@@ -51,7 +58,8 @@
         "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
         "react/": "https://esm.sh/react@^19.2.3/",
         "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0",
-        "lucide-react": "https://esm.sh/lucide-react@^0.562.0"
+        "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+        "pdfjs-dist": "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/build/pdf.min.mjs"
       }
     }
     </script>
